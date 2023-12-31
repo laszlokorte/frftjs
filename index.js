@@ -1,4 +1,4 @@
-function frft2(f, a) {
+function frft(f, a) {
     const N = f.length;
     a = a % 4;
     
@@ -8,7 +8,7 @@ function frft2(f, a) {
     if (a === 1) return fft(f.slice());
     if (a === 3) return ifft(f.slice());
     
-    let f0 = f.slice();
+    let f0 = fftShift(f.slice());
 
     // reduce a into the range (0.5, 1.5)
     if (a > 2.0) {
@@ -17,11 +17,11 @@ function frft2(f, a) {
     }
     if (a > 1.5) {
         a = a - 1;
-        f0 = (fft((f0)));
+        f0 = fftShift(fft(fftShift(f0)));
     }
     if (a < 0.5) {
         a = a + 1;
-        f0 = (ifft((f0)));
+        f0 = fftShift(ifft(fftShift(f0)));
     }
 
     const alpha = a * Math.PI / 2;
@@ -47,7 +47,6 @@ function frft2(f, a) {
     const h0 = ifft(complZipArrays(f0c, f1c, complAdd));
 
     return fftShift(l0.map((l, i) => complMul(Cs, l, h0[N + i])).map(x => complScale(x, Math.sqrt(N))))
-
 }
 
 function complZipArrays(a,b, op) {
@@ -113,6 +112,9 @@ function sinc(x) {
   return [Math.sin(Math.PI*x) / (Math.PI*x), 0]
 }
 
+const NEG_TWO_PI = -2*Math.PI;
+
+
 function _fft(amplitudes) {
   const N = amplitudes.length
 
@@ -125,15 +127,11 @@ function _fft(amplitudes) {
   const evenT = _fft(arrayMod(amplitudes, 2, 0))
   const oddT = _fft(arrayMod(amplitudes, 2, 1))
 
-  const a = -2*Math.PI
 
   for(let k = 0; k < hN; ++k){
     const p = k/N;
-    const t = [Math.cos(a*p), Math.sin(a*p)];
 
-    const r = t[0] * oddT[k][0] - t[1] * oddT[k][1];
-    t[1] = t[0] * oddT[k][1] + t[1] * oddT[k][0];
-    t[0] = r;
+    const t = complMul(complExp(compl(0, NEG_TWO_PI*p)), oddT[k]);
 
     amplitudes[k] = [evenT[k][0] + t[0], evenT[k][1] + t[1]];
     amplitudes[k + hN] = [evenT[k][0] - t[0], evenT[k][1] - t[1]];
@@ -150,31 +148,42 @@ function fftShift(values) {
 
 function fft(amplitudes) {
   const N = amplitudes.length;
-  const iN = 1 / N;
+  const scaleFactor = 1 / Math.sqrt(N);
 
   amplitudes = _fft(amplitudes)
 
-  for(i = 0; i < N; ++i){
-    amplitudes[i][0] *= Math.sqrt(iN)
-    amplitudes[i][1] *= Math.sqrt(iN)
-  }
+  complScaleArray(amplitudes, scaleFactor)
+
   return amplitudes;
 }
 
 function ifft(amplitudes) {
   const N = amplitudes.length;
-  const iN = 1 / N;
+  const scaleFactor = 1 / Math.sqrt(N);
 
-  for(i = 0; i < N; ++i){
-    amplitudes[i][1] = -amplitudes[i][1]
-  }
+  complConjugateArray(amplitudes)
 
   amplitudes = _fft(amplitudes)
 
-  for(i = 0; i < N; ++i){
-    amplitudes[i][1] = -amplitudes[i][1]
-    amplitudes[i][0] *= Math.sqrt(iN)
-    amplitudes[i][1] *= Math.sqrt(iN)
-  }
+  complConjugateArray(amplitudes)
+  complScaleArray(amplitudes, scaleFactor)
+
   return amplitudes;
+}
+
+function complConjugateArray(amplitudes) {
+  const N = amplitudes.length
+
+  for(let i = 0; i < N; ++i){
+    amplitudes[i][1] = -amplitudes[i][1]
+  }
+}
+
+function complScaleArray(amplitudes, scale) {
+  const N = amplitudes.length
+
+  for(let i = 0; i < N; ++i){
+    amplitudes[i][0] = amplitudes[i][0] * scale
+    amplitudes[i][1] = amplitudes[i][1] * scale
+  }
 }
