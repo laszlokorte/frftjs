@@ -21,7 +21,7 @@ function frft(f, a) {
     }
     if (a < 0.5) {
         a = a + 1;
-        f0 = fftShift(ifft(fftShift(f0)));
+        f0 = ifftShift(ifft(fftShift(f0)));
     }
 
     const alpha = a * Math.PI / 2;
@@ -29,17 +29,16 @@ function frft(f, a) {
     const t = Math.PI / (N + 1) * Math.tan(alpha / 2) / 4;
     const Cs = complScale(complExp(compl(0, -1 * (1 - a) * Math.PI / 4)), Math.sqrt(s / Math.PI));
 
-    const sincArry = Array.from({length: 2 * N - 2}, (_, i) => -(2 * N - 3) + 2 * i).map(sinc).map(x => complScale(x, 1/2))
-
-    const f1 = ifft(fconv(f0, sincArry)).reverse().slice(N, 2 * N - 1);
+    const sincArray = Array.from({length: 2 * N - 2}, (_, i) => -(2 * N - 3) + 2 * i).map(sinc).map(x => complScale(x, 1/2))
+    const f1 = ifft(fconv(f0, sincArray)).slice(0,N).reverse();
     
-    const chrpA = Array.from({length: 2 * N - 1}, (_, i) => complExp(compl(0, -1 * t * Math.pow(-N + 1 + i, 2))));
+    const chrpA = Array.from({length: 2 * N}, (_, i) => complExp(compl(0, -1 * t * Math.pow(-N + i, 2))));
     const l0 = arrayMod(chrpA, 2, 0)
     const l1 = arrayMod(chrpA, 2, 1)
     const f0m = complZipArrays(f0, l0, complMul);
     const f1m = complZipArrays(f1, l1, complMul);
     
-    const chrpB = Array.from({length: 4 * N - 1}, (_, i) => complExp(compl(0, 1 * s * Math.pow(-(2 * N - 1) + i, 2))));
+    const chrpB = Array.from({length: 4 * N}, (_, i) => complExp(compl(0, 1 * s * Math.pow(-(2 * N) + i, 2))));
     const e1 = arrayMod(chrpB, 2, 0);
     const e0 = arrayMod(chrpB, 2, 1);
     const f0c = fconv(f0m, e0);
