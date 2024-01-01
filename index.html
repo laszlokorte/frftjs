@@ -21,36 +21,50 @@
 </head>
 <body>
 
-	<fieldset>
-		<legend>Options</legend>
+	<form>
+		<h2>Fractional Fourier Transform</h2>
+		<fieldset>
+			<legend>Options</legend>
 
 
-		<label>
-			Signal: <output id="signal_out"></output><br>
-			<select onchange="changeSignal(this.value)" id="signal" name="signal">
-				<option>rect</option>
-				<option>sin</option>
-				<option>dirac</option>
-			</select>
-		</label>
+			<label>
+				Signal: <output id="signal_out"></output><br>
+				<select onchange="changeSignal(this.form.signal.value, this.form.offset.valueAsNumber)" id="signal" name="signal">
+					<option>rect</option>
+					<option>sin</option>
+					<option>dirac</option>
+				</select>
+			</label>
 
-		<label>
-			Fraction: <output id="fraction_out"></output><br>
-			<input oninput="changeFrac(this.valueAsNumber)" value="0" type="range" min="0" max="4" step="0.01" name="fraction" id="fraction">
-		</label>
-	</fieldset>
+			<label>
+				Offset: <output id="offset_out"></output><br>
+				<input oninput="changeSignal(this.form.signal.value, this.form.offset.valueAsNumber)" value="0" type="range" min="-120" max="120" step="1" name="offset" id="offset">
+			</label>
+
+			<label>
+				Fraction: <output id="fraction_out"></output><br>
+				<input list="full-fractions" oninput="changeFrac(this.valueAsNumber)" value="0" type="range" min="0" max="4" step="0.01" name="fraction" id="fraction">
+				<datalist id="full-fractions">
+					<option>0.0</option>
+					<option>1.0</option>
+					<option>2.0</option>
+					<option>3.0</option>
+					<option>4.0</option>
+				</datalist>
+			</label>
+		</fieldset>
+	</form>
 
 	<canvas width="1024" height="256"></canvas>
 
 	<script src="index.js"></script>
 	<script>
 
-
-		function makeSignal(type, length) {
+		function makeSignal(type, length, offset) {
 			return {
-				rect: () => fftShift(Array(length).fill(null).map((_,i)=> i<20||i>length-20 ? [1,0] : [0,0])),
-				sin: () => fftShift(Array(length).fill(null).map((_,i)=> [Math.sin(i* Math.PI*2/length*20), 0])),
-				dirac: () => fftShift(Array(length).fill(null).map((_,i)=> i == 0 ? [1, 0] : [0,0])),
+				rect: () => fftShift(Array(length).fill(null).map((_,i)=> ((i+offset+length)%length)<21||((i+offset+length)%length)>=length-20 ? [1,0] : [0,0])),
+				sin: () => fftShift(Array(length).fill(null).map((_,i)=> [Math.sin(((i+offset+length)%length)* Math.PI*2/(length+1)*20), 0])),
+				dirac: () => fftShift(Array(length).fill(null).map((_,i)=> ((i+offset+length)%length) == 0 ? [1, 0] : [0,0])),
 			}[type]();
 		}
 	</script>
@@ -61,21 +75,25 @@
 		const cW = canvas.width
 		const yAxisHeight = 1/4 * cH - 10
 		const fraction_slider = document.getElementById('fraction');
+		const offset_slider = document.getElementById('offset');
 		const fraction_out = document.getElementById('fraction_out');
 		const signal_type = document.getElementById('signal');
 		const signal_out = document.getElementById('signal_out');
+		const offset_out = document.getElementById('offset_out');
 		let signal = null
 		let transformed = null
-		changeSignal(signal_type.value)
+		changeSignal(signal_type.value, offset_slider.valueAsNumber)
 		changeFrac(fraction_slider.valueAsNumber)
 
-		function changeSignal(type) {
-			signal = makeSignal(type, cW)
+		function changeSignal(type, offset) {
+			signal = makeSignal(type, cW, offset)
 			changeFrac(fraction_slider.valueAsNumber)
+
+			offset_out.value = offset
 		}
 
 		function changeFrac(f) {
-			transformed = fftShift(frft(fftShift(signal), f))
+			transformed = (frft((signal), f))
 			scale = 1/Math.max(...transformed.map(([a,b]) => Math.max(a,b)))
 			fraction_out.value = f
 		}
@@ -90,33 +108,70 @@
 			ctx.beginPath()
 			ctx.fillStyle = "red";
 			for(let t=0;t<signal.length;t++) {
-				ctx.rect(t-1,yAxisHeight*signal[t][0]-1,2,2);
+				ctx.rect(t-1,yAxisHeight*signal[t][0]-1,3,3);
 			}
 			ctx.fill()
 			ctx.beginPath()
 			ctx.fillStyle = "blue";
 			for(let t=0;t<signal.length;t++) {
-				ctx.rect(t-1,yAxisHeight*signal[t][1]-1,2,2);
+				ctx.rect(t-1,yAxisHeight*signal[t][1]-1,3,3);
 			}
 			ctx.fill()
+
+
+			ctx.beginPath()
+			ctx.strokeStyle = "red";
+			ctx.lineWidth = 0.5;
+
+			for(let t=0;t<signal.length;t++) {
+				ctx.lineTo(t+1,yAxisHeight*signal[t][0]+1);
+			}
+			ctx.stroke()
+			ctx.beginPath()
+			ctx.strokeStyle = "blue";
+			ctx.lineWidth = 0.5;
+			for(let t=0;t<signal.length;t++) {
+				ctx.lineTo(t+1,yAxisHeight*signal[t][1]+1);
+			}
+			ctx.stroke()
+
+
 			ctx.restore()
 
 			ctx.save()
-			ctx.beginPath()
-			ctx.fillStyle = "red";
 			ctx.translate(0,3/4*cH)
 			ctx.scale(1,-1);
+
+			ctx.beginPath()
 			ctx.fillStyle = "red";
 			for(let t=0;t<transformed.length;t++) {
-				ctx.rect(t-1,scale*yAxisHeight*transformed[t][0]-1,2,2);
+				ctx.rect(t-1,scale*yAxisHeight*transformed[t][0]-1,3,3);
 			}
 			ctx.fill()
 			ctx.beginPath()
 			ctx.fillStyle = "blue";
 			for(let t=0;t<transformed.length;t++) {
-				ctx.rect(t-1,scale*yAxisHeight*transformed[t][1]-1,2,2);
+				ctx.rect(t-1,scale*yAxisHeight*transformed[t][1]-1,3,3);
 			}
 			ctx.fill()
+
+
+			ctx.beginPath()
+			ctx.strokeStyle = "red";
+			ctx.lineWidth = 0.5;
+
+			for(let t=0;t<transformed.length;t++) {
+				ctx.lineTo(t+1,scale*yAxisHeight*transformed[t][0]+1);
+			}
+			ctx.stroke()
+			ctx.beginPath()
+			ctx.strokeStyle = "blue";
+			ctx.lineWidth = 0.5;
+			for(let t=0;t<transformed.length;t++) {
+				ctx.lineTo(t+1,scale*yAxisHeight*transformed[t][1]+1);
+			}
+			ctx.stroke()
+
 			ctx.restore()
 		}
 

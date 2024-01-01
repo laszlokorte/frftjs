@@ -5,10 +5,10 @@ function frft(f, a) {
     // for integer values of a the fractional fourier transform is the same as the discrete fourier transform
     if (a === 0) return f.slice();
     if (a === 2) return f.slice().reverse();
-    if (a === 1) return fft(f.slice());
-    if (a === 3) return ifft(f.slice());
+    if (a === 1) return ifftShift(fft(fftShift(f.slice())));
+    if (a === 3) return ifftShift(ifft(fftShift(f.slice())));
     
-    let f0 = fftShift(f.slice());
+    let f0 = f.slice(); //JSON.parse(JSON.stringify(f));
 
     // reduce a into the range (0.5, 1.5)
     if (a > 2.0) {
@@ -17,7 +17,7 @@ function frft(f, a) {
     }
     if (a > 1.5) {
         a = a - 1;
-        f0 = fftShift(fft(fftShift(f0)));
+        f0 = ifftShift(fft(fftShift(f0)));
     }
     if (a < 0.5) {
         a = a + 1;
@@ -46,7 +46,7 @@ function frft(f, a) {
     const f1c = fconv(f1m, e1);
     const h0 = ifft(complZipArrays(f0c, f1c, complAdd));
 
-    return fftShift(l0.map((l, i) => complMul(Cs, l, h0[N + i])).map(x => complScale(x, Math.sqrt(N))))
+    return l0.map((l, i) => complMul(Cs, l, h0[N + i])).map(x => complScale(x, Math.sqrt(N)))
 }
 
 function complZipArrays(a,b, op) {
@@ -55,6 +55,10 @@ function complZipArrays(a,b, op) {
 
 function arrayMod(a, m, c) {
   return a.filter((_, i) => i % m === c)
+}
+
+function rot(array, n) {
+  return [...array.slice(array.length-n), ...array.slice(0, array.length-n)]
 }
 
 function fconv(x, y, c) {
@@ -142,7 +146,17 @@ function _fft(amplitudes) {
 }
 
 function fftShift(values) {
-    return values.map((_,i) => values[(i + values.length/2) % values.length])
+  const hl = Math.floor(values.length/2)
+  return [...values.slice(hl), ...values.slice(0, hl)]
+}
+
+function ifftShift(values) {
+  const hl = Math.ceil(values.length/2)
+  return [...values.slice(hl), ...values.slice(0, hl)]
+}
+
+function frfftShift(values) {
+    return values.map((_,i) => values[(i + Math.ceil(values.length/2)) % values.length])
 }
 
 
