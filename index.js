@@ -21,6 +21,7 @@ function frft(f, a) {
     }
     if (a < 0.5) {
         a = a + 1;
+        f0 = rotate(f0, 1)
         f0 = ifftShift(ifft(fftShift(f0)));
     }
 
@@ -152,6 +153,10 @@ function fftShift(values) {
 function ifftShift(values) {
   const hl = Math.ceil(values.length/2)
   return [...values.slice(hl), ...values.slice(0, hl)]
+}
+
+function rotate(values, r) {
+  return [...values.slice((r+values.length+values.length)%values.length), ...values.slice(0, (r+values.length+values.length)%values.length)]
 }
 
 function frfftShift(values) {
